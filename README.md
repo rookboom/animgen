@@ -1,0 +1,2 @@
+# animgen
+Exploring generative animations.
