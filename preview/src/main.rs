@@ -1,11 +1,14 @@
 //! Plays an animation on a skinned glTF model of a fox.
-
+mod bvh_asset_loader;
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use bvh_asset_loader::BvhAssetLoader;
+
+use crate::bvh_asset_loader::{BvhAsset, BvhAssetLabel, CharacterJoint};
 
 // An example asset that contains a mesh and animation.
-const GLTF_PATH: &str = "models/Miraikomachi.glb";
+const ANIMATION_FILE: &str = "corrected_animations/dataset-1_bow_active_001.bvh";
 
 fn main() {
     App::new()
@@ -14,7 +17,10 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
+        .register_type::<CharacterJoint>()
         .add_plugins(DefaultPlugins)
+        .init_asset::<BvhAsset>()
+        .init_asset_loader::<BvhAssetLoader>()
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
         .run();
@@ -36,14 +42,18 @@ fn setup_mesh_and_animation(
 ) {
     // Create an animation graph containing a single animation. We want the "run"
     // animation from our example asset, which has an index of two.
+    // let (graph, index) = AnimationGraph::from_clip(
+    //     asset_server.load(GltfAssetLabel::Animation(0).from_asset(GLTF_PATH)),
+    // );
     let (graph, index) = AnimationGraph::from_clip(
-        asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
+        asset_server.load(BvhAssetLabel::Clip.from_asset(ANIMATION_FILE)),
     );
+    // miraikomachi_gp -> joint_Root -> Hips
 
     // Store the animation graph as an asset.
     let graph_handle = graphs.add(graph);
 
-    // Create a component that stores a reference to our animation.
+    //Create a component that stores a reference to our animation.
     let animation_to_play = AnimationToPlay {
         graph_handle,
         index,
@@ -51,14 +61,34 @@ fn setup_mesh_and_animation(
 
     // Start loading the asset as a scene and store a reference to it in a
     // SceneRoot component. This component will automatically spawn a scene
-    // containing our mesh once it has loaded.
-    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+    // containing our skeleton hierarchy once it has loaded.
+    let skeleton_scene =
+        SceneRoot(asset_server.load(BvhAssetLabel::Scene.from_asset(ANIMATION_FILE)));
 
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.
     commands
-        .spawn((animation_to_play, mesh_scene))
-        .observe(play_animation_when_ready);
+        .spawn((animation_to_play, skeleton_scene))
+        .observe(play_animation_when_ready)
+        .observe(create_character_visuals_when_ready);
+}
+
+fn create_character_visuals_when_ready(
+    trigger: Trigger<SceneInstanceReady>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let white = materials.add(Color::WHITE);
+    let sphere = meshes.add(Sphere::new(0.1).mesh().ico(5).unwrap());
+
+    for entity in children.iter_descendants(trigger.target()) {
+        info!("Spawning mesh...");
+        commands
+            .entity(entity)
+            .insert((Mesh3d(sphere.clone()), MeshMaterial3d(white.clone())));
+    }
 }
 
 fn play_animation_when_ready(
