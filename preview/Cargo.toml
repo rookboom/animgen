@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.16.1"}
+smooth-bevy-cameras = "0.14.0"
 bvh_anim = { git = "https://github.com/rookboom/bvh_anim.git", branch = "johan/joint_children" }
 thiserror = "2.0"
 itertools = "0.14"

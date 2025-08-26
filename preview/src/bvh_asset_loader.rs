@@ -68,35 +68,42 @@ impl AssetLoader for BvhAssetLoader {
     }
 }
 
-fn joint_transform(joint: &Joint) -> Transform {
+fn joint_offset(joint: &Joint) -> Vec3 {
     let offset = joint.offset();
-    Transform::from_translation(Vec3::new(offset[0], offset[1], offset[2]))
+    Vec3::new(offset[0], offset[1], offset[2])
+}
+
+fn child_bundle(name: Name, offset: Vec3) -> impl Bundle {
+    info!("Creating child proto: {} at {}", name, offset);
+    (
+        name,
+        Transform::from_translation(offset),
+        CharacterJoint,
+        Visibility::default(),
+    )
 }
 
 //-------------------------------------------------------------------------------------------------
 fn scene_from_bvh(bvh: &Bvh) -> Result<Scene, BvhAssetLoaderError> {
-    fn spawn_joint<'a, 'w>(
-        world: &'a mut EntityWorldMut<'w>,
-        joint: &Joint,
-    ) -> &'a mut EntityWorldMut<'w> {
+    fn spawn_joint(parent: &mut ChildSpawner, joint: &Joint) {
         let name = Name::from(String::from_utf8(joint.name().to_vec()).unwrap_or_default());
-        let world = world.with_child((name.clone(), joint_transform(joint), CharacterJoint));
+
+        let mut world = parent.spawn(child_bundle(name.clone(), joint_offset(joint)));
         if let Some(end_site) = joint.end_site() {
             let end_site = Vec3::new(end_site[0], end_site[1], end_site[2]);
             if end_site.length() > 0.0 {
-                world.with_child((
+                world.with_child(child_bundle(
                     Name::from(format!("{}_end", name.to_string())),
-                    Transform::from_translation(end_site),
-                    CharacterJoint,
+                    end_site,
                 ));
             }
         } else {
-            for child in joint.children() {
-                spawn_joint(world, &child);
-            }
+            world.with_children(|parent| {
+                for child in joint.children() {
+                    spawn_joint(parent, &child);
+                }
+            });
         }
-
-        world
     }
 
     let mut world = World::default();
@@ -106,9 +113,11 @@ fn scene_from_bvh(bvh: &Bvh) -> Result<Scene, BvhAssetLoaderError> {
         .next()
         .ok_or_else(|| BvhAssetLoaderError::UnexpectedData("No root joint found".to_string()))?;
 
-    let mut entity_world = world.spawn_empty();
-
-    spawn_joint(&mut entity_world, &root_joint);
+    world
+        .spawn((Transform::default(), Visibility::default()))
+        .with_children(|spawner| {
+            spawn_joint(spawner, &root_joint);
+        });
 
     Ok(Scene::new(world))
 }

@@ -3456,6 +3456,7 @@ dependencies = [
  "bevy",
  "bvh_anim",
  "itertools 0.14.0",
+ "smooth-bevy-cameras",
  "thiserror 2.0.16",
 ]
 
@@ -3874,6 +3875,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "smooth-bevy-cameras"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9aa7910900b77c01177ca2acbc75475932d0bd9d64c5313e7ad5e848ed412a4"
+dependencies = [
+ "approx",
+ "bevy",
 ]
 
 [[package]]

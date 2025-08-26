@@ -1,6 +1,10 @@
 //! Plays an animation on a skinned glTF model of a fox.
 mod bvh_asset_loader;
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use smooth_bevy_cameras::{
+    LookTransform, LookTransformPlugin,
+    controllers::unreal::{UnrealCameraBundle, UnrealCameraController, UnrealCameraPlugin},
+};
 use std::f32::consts::PI;
 
 use bvh_asset_loader::BvhAssetLoader;
@@ -19,6 +23,8 @@ fn main() {
         })
         .register_type::<CharacterJoint>()
         .add_plugins(DefaultPlugins)
+        .add_plugins(LookTransformPlugin)
+        .add_plugins(UnrealCameraPlugin::default())
         .init_asset::<BvhAsset>()
         .init_asset_loader::<BvhAssetLoader>()
         .add_systems(Startup, setup_mesh_and_animation)
@@ -79,15 +85,23 @@ fn create_character_visuals_when_ready(
     children: Query<&Children>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    names: Query<&Name>,
+    character_joints: Query<&CharacterJoint>,
 ) {
     let white = materials.add(Color::WHITE);
-    let sphere = meshes.add(Sphere::new(0.1).mesh().ico(5).unwrap());
+    let sphere = meshes.add(Sphere::new(2.0).mesh().ico(3).unwrap());
 
     for entity in children.iter_descendants(trigger.target()) {
-        info!("Spawning mesh...");
-        commands
-            .entity(entity)
-            .insert((Mesh3d(sphere.clone()), MeshMaterial3d(white.clone())));
+        let name = names.get(entity);
+        if let Ok(_) = character_joints.get(entity) {
+            info!(
+                "Spawning mesh for {}...",
+                name.unwrap_or(&Name::from("<unknown>"))
+            );
+            commands
+                .entity(entity)
+                .insert((Mesh3d(sphere.clone()), MeshMaterial3d(white.clone())));
+        }
     }
 }
 
@@ -130,11 +144,22 @@ fn setup_camera_and_environment(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    let eye = Vec3::new(200.0, 200.0, 200.0);
+    let target = Vec3::new(0.0, 100.0, 0.0);
+    commands
+        .spawn(Camera3d::default())
+        .insert(UnrealCameraBundle::new(
+            UnrealCameraController::default(),
+            eye,
+            target,
+            Vec3::Y,
+        ));
+
     // Camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
-    ));
+    // commands.spawn((
+    //     Camera3d::default(),
+    //     Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+    // ));
 
     // Plane
     commands.spawn((
