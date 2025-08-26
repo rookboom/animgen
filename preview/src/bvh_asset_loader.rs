@@ -10,12 +10,7 @@ use itertools::izip;
 use thiserror::Error;
 
 #[derive(TypePath, Asset)]
-pub struct BvhAsset {
-    pub clip: Handle<AnimationClip>,
-    // The scene is a visual representation of the character skeleton.
-    // Useful for visualizing the character's pose and animation.
-    pub scene: Handle<Scene>,
-}
+pub struct BvhAsset;
 
 pub enum BvhAssetLabel {
     Clip,
@@ -43,6 +38,9 @@ pub enum BvhAssetLoaderError {
     NotEnoughSamples(UnevenCoreError),
 }
 
+const CLIP: &str = "clip";
+const SCENE: &str = "scene";
+
 impl AssetLoader for BvhAssetLoader {
     type Asset = BvhAsset;
     type Settings = ();
@@ -56,11 +54,28 @@ impl AssetLoader for BvhAssetLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let bvh = bvh_anim::from_bytes(&bytes)?;
-        let clip = bvh_to_clip(&bvh)?;
-        let scene = scene_from_bvh(&bvh)?;
-        let clip = load_context.add_labeled_asset("clip".to_string(), clip);
-        let scene = load_context.add_labeled_asset("scene".to_string(), scene);
-        Ok(BvhAsset { clip, scene })
+
+        match load_context.asset_path().label() {
+            Some(CLIP) => {
+                let clip = bvh_to_clip(&bvh)?;
+                load_context.add_labeled_asset(CLIP.to_string(), clip);
+                Ok(BvhAsset)
+            }
+            Some(SCENE) => {
+                let scene = scene_from_bvh(&bvh)?;
+
+                load_context.add_labeled_asset(SCENE.to_string(), scene);
+                Ok(BvhAsset)
+            }
+            _ => {
+                let clip = bvh_to_clip(&bvh)?;
+                let scene = scene_from_bvh(&bvh)?;
+
+                load_context.add_labeled_asset("clip".to_string(), clip);
+                load_context.add_labeled_asset("scene".to_string(), scene);
+                Ok(BvhAsset)
+            }
+        }
     }
 
     fn extensions(&self) -> &[&str] {
@@ -287,8 +302,8 @@ impl BvhAssetLabel {
 impl core::fmt::Display for BvhAssetLabel {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            BvhAssetLabel::Clip => f.write_str("clip"),
-            BvhAssetLabel::Scene => f.write_str("scene"),
+            BvhAssetLabel::Clip => f.write_str(CLIP),
+            BvhAssetLabel::Scene => f.write_str(SCENE),
         }
     }
 }
