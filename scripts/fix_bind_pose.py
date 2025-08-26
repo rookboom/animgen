@@ -5,6 +5,15 @@ import bvhio
 from pathlib import Path
 
 # This converts the Rest Pose so that it is standing upright like at 0,0,0, like most animations.
+def remove_motion(joint: bvhio.Joint):
+    count = 0
+    for (_, transform) in joint.Keyframes:
+        transform.PositionWorld = joint.RestPose.PositionWorld
+        count += 1
+
+    print(f"Removed motion for {count} keyframes")
+    for child in joint.Children:
+        remove_motion(child)
 
 def readAsHierarchy(path: str, loadKeyFrames: bool = True) -> bvhio.Joint:
     """Deserialize a .bvh file into a joint hierarchy."""
@@ -25,7 +34,6 @@ def modifyFile(source: str, destination: str):
     print('| Set T-pose')
     root.loadRestPose()
     layout[ 1][0].setEuler((   0,  90,   0))                 # Hips
-    root.writeRestPose(recursive=True, keep=['position', 'rotation', 'scale'])
     layout[ 2][0].setEuler((   0,   0,   0))                # Spine
     layout[ 3][0].setEuler((   0, +90,   0)).roll(-90)      # Chest
     layout[ 4][0].setEuler((   0,   0,   0))                # Neck
@@ -73,13 +81,18 @@ def modifyFile(source: str, destination: str):
 
     root = root.Children[0].clearParent()
 
+    bvhio.writeHierarchy(path=destination, root=root, frameTime=1/30)
+
     # We need to rotate the hips first around the Y-axis, then after it is rotated
     # again around the Y axis. For this reason, we do this in two passes.
     # The first pass sets the character in the T pose and does the first hip rotation.
     # The second pass just rotates the hip around the y axis.
-    frames = root.getKeyframeRange()[1] + 1
-    bvh = bvhio.convertHierarchyToBvh(root, frames + 1)
-    root = bvhio.convertBvhToHierarchy(bvh).loadRestPose(recursive=True)
+    bvh = bvhio.readAsBvh(destination)
+    root = bvhio.convertBvhToHierarchy(bvh.Root).loadRestPose(recursive=True)
+
+    for child in root.Children:
+        remove_motion(child)
+
     layout = root.layout()
     root.loadRestPose()
     layout[0][0].setEuler((   0,  90,   0)) 
