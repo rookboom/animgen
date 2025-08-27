@@ -1,6 +1,6 @@
 //! Plays an animation on a skinned glTF model of a fox.
 mod bvh_asset_loader;
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
+use bevy::{gizmos, pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
 use smooth_bevy_cameras::{
     LookTransform, LookTransformPlugin,
     controllers::unreal::{UnrealCameraBundle, UnrealCameraController, UnrealCameraPlugin},
@@ -29,6 +29,7 @@ fn main() {
         .init_asset_loader::<BvhAssetLoader>()
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
+        .add_systems(Update, draw_characters)
         .run();
 }
 
@@ -181,4 +182,20 @@ fn setup_camera_and_environment(
         }
         .build(),
     ));
+}
+
+fn draw_characters(
+    mut gizmos: Gizmos,
+    characters: Query<(&GlobalTransform, &ChildOf), With<CharacterJoint>>,
+) {
+    for (transform, parent) in characters.iter() {
+        if let Some((parent_transform, _)) = characters.get(parent.0).ok() {
+            // Draw a line from the parent joint to the current joint
+            gizmos.line(
+                parent_transform.translation(),
+                transform.translation(),
+                Color::WHITE,
+            );
+        }
+    }
 }
