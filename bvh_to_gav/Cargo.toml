@@ -1,0 +1,11 @@
+[package]
+name = "bvh_to_gav"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bvh_anim_parser = { git = "https://github.com/rookboom/bvh_anim_parser.git", branch = "johan/build_fix" }
+ndarray = "0.16"
+ndarray-npy = "0.9"
+anyhow = "1.0"
+bevy_math = "0.16"

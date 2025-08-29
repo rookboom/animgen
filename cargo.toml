@@ -1,5 +1,5 @@
 [workspace]
 resolver = "2"
-members = [
+members = [ "bvh_to_gav",
     "preview"
 ]
