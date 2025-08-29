@@ -7,6 +7,6 @@ edition = "2024"
 bevy = { version = "0.16.1"}
 bevy_egui = "0.36"
 smooth-bevy-cameras = "0.14.0"
-bvh_anim = { git = "https://github.com/rookboom/bvh_anim.git", branch = "johan/joint_children" }
+bvh_anim_parser = { git = "https://github.com/rookboom/bvh_anim_parser.git", branch = "johan/build_fix" }
 thiserror = "2.0"
 itertools = "0.14"

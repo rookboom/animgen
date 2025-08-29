@@ -1,6 +1,7 @@
 //! Plays an animation on a skinned glTF model of a fox.
 mod bvh_asset_loader;
 use bevy::{
+    color::palettes::css::{BLUE, GREEN, RED, YELLOW},
     ecs::{error, world},
     input::keyboard::Key,
     math::VectorSpace,
@@ -149,23 +150,41 @@ fn draw_rest_position(mut gizmos: Gizmos, load_state: Res<LoadState>) {
     }
 }
 
+fn draw_joint_axes(gizmos: &mut Gizmos, world_transform: Mat4, scale: f32) {
+    let position = world_transform.col(3).xyz();
+
+    // draw axes
+    let left = scale * world_transform.col(0).xyz() + position;
+    let up = scale * world_transform.col(1).xyz() + position;
+    let forward = scale * world_transform.col(2).xyz() + position;
+
+    gizmos.line(position, left, RED);
+    gizmos.line(position, up, GREEN);
+    gizmos.line(position, forward, BLUE);
+}
+
 fn draw_pose(
     gizmos: &mut Gizmos,
     skeleton: &JointHierarchy,
     key_frames: &KeyFrames,
     current_frame: usize,
     parent_transform: Mat4,
+    rest: bool,
 ) {
-    let joint_rotation = key_frames.joint_rotations[&skeleton.name][current_frame];
+    let joint_rotation = if rest {
+        Quat::IDENTITY
+    } else {
+        key_frames.joint_rotations[&skeleton.name][current_frame]
+    };
     let joint_transform =
         parent_transform * Mat4::from_rotation_translation(joint_rotation, skeleton.offset);
     let world_position = joint_transform.col(3).xyz();
-    let yellow = Color::srgb_u8(255, 255, 0);
-    gizmos.sphere(world_position, 2.0, yellow);
+    // gizmos.sphere(world_position, 2.0, yellow);
+    draw_joint_axes(gizmos, joint_transform, 2.0);
     if let Some(end) = skeleton.end {
         let end_transform = joint_transform * Mat4::from_translation(end);
         if end.length() > 0.0 {
-            gizmos.line(world_position, end_transform.col(3).xyz(), Color::WHITE);
+            gizmos.line(world_position, end_transform.col(3).xyz(), YELLOW);
         }
     }
     for child in &skeleton.children {
@@ -173,7 +192,14 @@ fn draw_pose(
             .col(3)
             .xyz();
         gizmos.line(world_position, child_world_position, Color::WHITE);
-        draw_pose(gizmos, child, key_frames, current_frame, joint_transform);
+        draw_pose(
+            gizmos,
+            child,
+            key_frames,
+            current_frame,
+            joint_transform,
+            rest,
+        );
     }
 }
 
@@ -198,6 +224,7 @@ fn update_animation(
             &animation.key_frames,
             timeline.current_frame,
             Mat4::from_translation(root_translation),
+            timeline.current_frame == 0,
         );
 
         // timeline.current_frame += 1;
